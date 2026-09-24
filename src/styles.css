@@ -7,6 +7,8 @@
   --wall: #4c5b6c;
   --path: #e8ecf0;
   --grid: #cdd5dd;
+  --cover: #a9b6c4;
+  --cover-line: #95a3b3;
   --start: #82d3a2;
   --start-ink: #2b7a4b;
   --goal: #f49494;
@@ -88,6 +90,27 @@ body {
 
 .cell--wall {
   fill: var(--wall);
+}
+
+/* Face-down tiles: walls and paths look the same until the reveal. */
+.cell--covered {
+  fill: var(--cover);
+  stroke: var(--cover-line);
+  stroke-width: 2;
+}
+
+/* Reveal: tiles flip open in a quick wave from S (delay set inline per tile). */
+.board--revealed .cell--wall,
+.board--revealed .cell--path {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: tile-flip 150ms ease-out both;
+}
+
+@keyframes tile-flip {
+  from {
+    transform: scaleX(0);
+  }
 }
 
 .cell--start {

@@ -10,24 +10,32 @@ type Props = {
   robot: Pos;
   pose: RobotPose;
   cellMs: number;
+  /** Hide walls vs. paths (S, G and the robot stay visible). */
+  hidden?: boolean;
   overlay?: ReactNode;
 };
 
-export function MazeBoard({ maze, robot, pose, cellMs, overlay }: Props) {
+/** Per-tile delay of the reveal wave, starting at S; the whole wave stays under ~0.25s. */
+const REVEAL_STEP_MS = 10;
+
+export function MazeBoard({ maze, robot, pose, cellMs, hidden = false, overlay }: Props) {
   const size = maze.size * CELL + PAD * 2;
   const cells = maze.grid.flatMap((row, y) =>
     row.map((cell, x) => {
       const isStart = x === maze.start.x && y === maze.start.y;
       const isGoal = x === maze.goal.x && y === maze.goal.y;
-      const kind = cell === 1 ? "wall" : isStart ? "start" : isGoal ? "goal" : "path";
+      const actual = cell === 1 ? "wall" : isStart ? "start" : isGoal ? "goal" : "path";
+      const faceDown = hidden && (actual === "wall" || actual === "path");
+      const kind = faceDown ? "covered" : actual;
+      const distance = Math.abs(x - maze.start.x) + Math.abs(y - maze.start.y);
       // When the robot stands on S/G, tuck the label into the corner so it stays visible.
       const tucked = samePos(robot, { x, y });
-      return { x, y, kind, tucked, label: isStart ? "S" : isGoal ? "G" : "" };
+      return { x, y, kind, distance, tucked, label: isStart ? "S" : isGoal ? "G" : "" };
     }),
   );
 
   return (
-    <div className="board">
+    <div className={`board ${hidden ? "board--hidden" : "board--revealed"}`}>
       <svg
         viewBox={`0 0 ${size} ${size}`}
         role="img"
@@ -43,6 +51,7 @@ export function MazeBoard({ maze, robot, pose, cellMs, overlay }: Props) {
               width={CELL}
               height={CELL}
               className={`cell cell--${c.kind}`}
+              style={{ animationDelay: `${c.distance * REVEAL_STEP_MS}ms` }}
             />
             {c.label && (
               <text

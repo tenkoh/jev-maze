@@ -11,6 +11,7 @@ import { MoveQueue } from "./game/moveQueue";
 import { findStage, pickStage, STAGES } from "./game/stages";
 import {
   describeSpeechError,
+  ensureMicPermission,
   isSpeechSupported,
   SpeechError,
   type SpeechSession,
@@ -27,6 +28,7 @@ type FailReason = End | "error" | "no_speech" | "mic";
 
 type Phase =
   | { name: "idle" }
+  | { name: "preparing" }
   | { name: "countdown"; n: number }
   | { name: "recording"; startedAt: number }
   | { name: "running"; utterance: string | null; interpreting: boolean }
@@ -103,6 +105,17 @@ export function App() {
 
       let utterance: string;
       if (typed === undefined) {
+        // Get the microphone ready before the countdown so a permission dialog
+        // never cuts into the 3 seconds of speaking.
+        setPhase({ name: "preparing" });
+        try {
+          if (!isSpeechSupported()) throw new SpeechError("not-supported");
+          await ensureMicPermission();
+        } catch (e) {
+          if (alive()) failMic(e);
+          return;
+        }
+        if (!alive()) return;
         // Start recognition shortly before recording (LISTEN_LEAD_MS): early enough to
         // catch the first words, late enough to ignore most countdown noise.
         let session: SpeechSession | undefined;
@@ -235,6 +248,14 @@ export function App() {
     [reset],
   );
 
+  // The maze stays face down until the player has to speak: they plan while talking.
+  // A mic failure before recording keeps it hidden too, so a retry is still fresh.
+  const mazeHidden =
+    phase.name === "idle" ||
+    phase.name === "preparing" ||
+    phase.name === "countdown" ||
+    (phase.name === "result" && phase.reason === "mic");
+
   // While Jev is thinking and nothing is left to animate, show the thinking bubble.
   const shownPose: RobotPose =
     phase.name === "running" && phase.interpreting && pending === 0 ? "thinking" : pose;
@@ -247,6 +268,7 @@ export function App() {
           maze={maze}
           robot={robot}
           pose={shownPose}
+          hidden={mazeHidden}
           // Animate only real moves; a reset should snap back to S, not slide across the board.
           cellMs={phase.name === "running" ? CELL_MS : 0}
           overlay={phase.name === "countdown" ? <CountdownOverlay n={phase.n} /> : undefined}
@@ -295,7 +317,9 @@ function PhasePanel({
             START
           </button>
           <p className="hint">
-            3秒で道順を話してください（例：「右に突き当たりまで、下に2マス」）
+            迷路が現れたらロボットに道順を指示して下さい。
+            <br />
+            例：「右に真っ直ぐ、下に２マス」
             {!isSpeechSupported() && (
               <>
                 <br />
@@ -305,8 +329,11 @@ function PhasePanel({
           </p>
         </div>
       );
+    case "preparing":
+      return <p className="hint hint--lg">マイクを準備しています…</p>;
     case "countdown":
-      return <p className="hint hint--lg">まもなく音声を入力します</p>;
+      // The number on the board says it all.
+      return null;
     case "recording":
       return <RecordingPanel startedAt={phase.startedAt} durationMs={RECORD_MS} />;
     case "running":

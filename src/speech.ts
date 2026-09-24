@@ -53,6 +53,27 @@ export function describeSpeechError(code: string): string {
   }
 }
 
+/**
+ * Ask for microphone access up front (START), so a first-time permission dialog
+ * never eats into the recording window. Browsers without getUserMedia are left
+ * to the recognizer to report.
+ */
+export async function ensureMicPermission(): Promise<void> {
+  const media = navigator.mediaDevices as MediaDevices | undefined;
+  if (!media?.getUserMedia) return;
+  try {
+    const stream = await media.getUserMedia({ audio: true });
+    for (const track of stream.getTracks()) track.stop();
+  } catch (e) {
+    const name = e instanceof DOMException ? e.name : "";
+    if (name === "NotAllowedError" || name === "SecurityError")
+      throw new SpeechError("not-allowed");
+    if (name === "NotFoundError" || name === "NotReadableError")
+      throw new SpeechError("audio-capture");
+    throw new SpeechError("unknown");
+  }
+}
+
 export class SpeechError extends Error {
   constructor(readonly code: string) {
     super(`speech recognition error: ${code}`);
