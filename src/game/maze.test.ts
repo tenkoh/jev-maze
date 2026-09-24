@@ -45,12 +45,6 @@ describe("pathForStep", () => {
     expect(path).toHaveLength(4);
   });
 
-  it("treats an unspecified count like until_wall", () => {
-    expect(pathForStep(maze, maze.start, { direction: "right", count: "unspecified" })).toEqual(
-      pathForStep(maze, maze.start, { direction: "right", count: "until_wall" }),
-    );
-  });
-
   it("stops at the next junction", () => {
     // (2,2) has neighbors left, right and up open -> junction.
     expect(isJunction(maze, { x: 2, y: 2 })).toBe(true);

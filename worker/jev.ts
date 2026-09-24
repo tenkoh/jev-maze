@@ -2,6 +2,19 @@ import { choice, noul, type TypeSafeClient } from "@typesafe-ai/sdk";
 import type { NextStepResponse, Step } from "../shared/protocol";
 
 /**
+ * Put a separator (、) before every direction kanji that is not already at the start
+ * or after punctuation: 右まっすぐ下 1マス -> 右まっすぐ、下 1マス, 右下右下 -> 右、下、右、下.
+ * Speech recognition rarely inserts punctuation, and without a boundary Jev tends to
+ * attach a later movement's distance to the earlier one (or read 右下 as "lower right";
+ * there is no diagonal movement in this game).
+ */
+export const separateMovements = (utterance: string): string =>
+  utterance
+    .trim()
+    .replace(/\s+(?=[上下左右])/g, "、")
+    .replace(/(?<=[^、。,，!?！？\s])(?=[上下左右])/g, "、");
+
+/**
  * State for one "what is the next step?" request. The maze layout, walls and
  * goal are intentionally NOT included: Jev must translate the utterance
  * faithfully, not solve the maze.
@@ -9,7 +22,7 @@ import type { NextStepResponse, Step } from "../shared/protocol";
 export function buildState(utterance: string, parsedSteps: readonly Step[]) {
   const last = parsedSteps.at(-1);
   return {
-    utterance,
+    utterance: separateMovements(utterance),
     parsed_steps: parsedSteps.map((s) => ({ direction: s.direction, count: s.count })),
     // Counting is done in code; the model only needs to locate that movement.
     next_step_number: parsedSteps.length + 1,
@@ -56,7 +69,7 @@ export const QUESTIONS = {
       task: NEXT_STEP_TASK,
       question: "How far does `utterance` say that next movement should go?",
       rules: [
-        "The distance of a movement is the phrase right after its direction word, before the next direction. Example: in 右に進んで下に曲がって分かれ道まで, movement 1 (右に進んで) has no distance and movement 2 (下に曲がって分かれ道まで) goes until_junction.",
+        "The distance of a movement is the phrase right after its direction word, before the next direction. Example: in 右に進んで下に曲がって分かれ道まで, movement 1 (右に進んで) has no distance (until_wall) and movement 2 (下に曲がって分かれ道まで) goes until_junction.",
         "Judge only movement number `next_step_number`; the distances of earlier movements do not matter.",
         "Numbers may be written as digits, kanji or kana: 2, 二, に, ふた all mean 2.",
       ],
@@ -67,11 +80,10 @@ export const QUESTIONS = {
       "3": "Exactly three cells (3マス, 三マス, さんマス, 3つ).",
       "4": "Four or more cells (4マス, 5マス, ...).",
       until_wall:
-        "Until the wall / as far as possible (突き当たりまで, 突き当たり, 行き止まりまで, 壁まで, 端まで, ずっと, 行けるところまで). Also まっすぐ with no number (右にまっすぐ, まっすぐ行って); まっすぐ2マス is 2, not until_wall.",
+        "Until the wall / as far as possible, or no distance given at all. Includes 突き当たりまで, 突き当たり, 行き止まりまで, 壁まで, 端まで, ずっと, 行けるところまで, " +
+        "まっすぐ with no number (右にまっすぐ, まっすぐ行って), and a bare direction (右へ進んで, 下に行って, just 右). まっすぐ2マス is 2, not until_wall.",
       until_junction:
         "Until the next branch or intersection (次の分かれ道まで, 分かれ道まで, 分岐まで, 交差点まで, 曲がり角まで).",
-      unspecified:
-        "That movement names a direction but says nothing about distance (右へ進んで, 下に行って, just 右). Not used when a number, a stopping point such as 分かれ道, or まっすぐ is mentioned for it.",
       none: "Every movement in `utterance` is already in `parsed_steps`; there is no next movement.",
       unknown: "A distance is mentioned but cannot be understood.",
     },

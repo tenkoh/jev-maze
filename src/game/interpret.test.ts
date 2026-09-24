@@ -5,15 +5,10 @@ import { type AskNextStep, decide, interpret } from "./interpret";
 const answer = (
   direction: DirectionLabel,
   count: CountLabel,
-  {
-    isDone = 0.1,
-    dirConf = 0.95,
-    cntConf = 0.95,
-    cntProbs = {} as Partial<Record<CountLabel, number>>,
-  } = {},
+  { isDone = 0.1, dirConf = 0.95, cntConf = 0.95 } = {},
 ): NextStepResponse => ({
   nextDirection: { choice: direction, confidence: dirConf, probabilities: {} as never },
-  nextCount: { choice: count, confidence: cntConf, probabilities: cntProbs as never },
+  nextCount: { choice: count, confidence: cntConf, probabilities: {} as never },
   isDone,
   model: "test",
 });
@@ -57,26 +52,30 @@ describe("decide", () => {
   });
 });
 
-describe("decide: equivalent count labels", () => {
-  it("accepts a split between until_wall and unspecified (same movement)", () => {
-    const a = answer("down", "until_wall", {
-      cntConf: 0.3,
-      cntProbs: { until_wall: 0.5, unspecified: 0.43, "1": 0.04 },
+describe("decide: until_wall threshold", () => {
+  it("accepts until_wall at a lower confidence", () => {
+    expect(decide(answer("right", "until_wall", { cntConf: 0.62 }))).toEqual({
+      kind: "step",
+      step: { direction: "right", count: "until_wall" },
     });
-    expect(decide(a)).toEqual({ kind: "step", step: { direction: "down", count: "until_wall" } });
   });
 
-  it("still rejects when the equivalent group is not dominant", () => {
-    const a = answer("down", "unspecified", {
-      cntConf: 0.3,
-      cntProbs: { unspecified: 0.45, until_wall: 0.3, until_junction: 0.25 },
+  it("still rejects until_wall below its threshold", () => {
+    expect(decide(answer("right", "until_wall", { cntConf: 0.59 }))).toEqual({
+      kind: "end",
+      end: "confused",
     });
-    expect(decide(a)).toEqual({ kind: "end", end: "confused" });
   });
 
-  it("does not group other labels", () => {
-    const a = answer("down", "2", { cntConf: 0.3, cntProbs: { "2": 0.5, "3": 0.5 } });
-    expect(decide(a)).toEqual({ kind: "end", end: "confused" });
+  it("keeps the normal threshold for other counts and for the direction", () => {
+    expect(decide(answer("right", "2", { cntConf: 0.62 }))).toEqual({
+      kind: "end",
+      end: "confused",
+    });
+    expect(decide(answer("right", "until_wall", { dirConf: 0.62 }))).toEqual({
+      kind: "end",
+      end: "confused",
+    });
   });
 });
 

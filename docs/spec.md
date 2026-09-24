@@ -66,8 +66,10 @@ flowchart LR
 | 質問 ID | 型 | 内容 | 選択肢 |
 | --- | --- | --- | --- |
 | next_direction | Choice | `parsed_steps` の次に来る指示の画面上の方向（「曲がる」も画面上の方向として読む） | up / down / left / right / none（指示が尽きた）/ unknown（解釈できない） |
-| next_count | Choice | その指示の移動量 | 1〜4 / until_wall / until_junction / unspecified / none / unknown |
+| next_count | Choice | その指示の移動量（距離の指定がなければ until_wall） | 1〜4 / until_wall / until_junction / none / unknown |
 | is_done | Noul | `utterance` の指示はすべて `parsed_steps` で網羅済みか | — |
+
+**発話の前処理**：音声認識の結果には読点がほとんど付かない。区切りがないと、後ろの移動の距離が前の移動のものとして読まれたり（「右まっすぐ下 1マス」が 右1マス→下1マス になる）、「右下」が斜めの位置として読まれたりする。そこで Jev に渡す前に、文頭以外の方向の漢字（上下左右）の前に、区切りがなければ読点を入れる（「右まっすぐ、下 1マス」「右、下、右、下」）。画面に表示する発話は元のままとする。
 
 **state の付与ルール**：`next_step_number`（何番目の移動を問うか）と `previous_direction`（直前のステップの方向、なければ null）はコードが決定的に求めて付与する。数える処理を Jev に任せないためである。instructions には次を明記する。
 
@@ -81,10 +83,8 @@ flowchart LR
 | --- | --- | --- | --- |
 | 1 | `is_done` が閾値以上（他の回答と矛盾していても優先） | 完了 | その場で明確に止まる |
 | 2 | `next_direction` または `next_count` が none | 完了 | その場で明確に止まる |
-| 3 | いずれかが unknown、またはいずれかの confidence が閾値未満（※） | 困惑 | 頭上に「？」を出して困る |
+| 3 | いずれかが unknown、またはいずれかの confidence が閾値未満（移動量が until_wall のときは閾値を緩める） | 困惑 | 頭上に「？」を出して困る |
 | 4 | 最大ステップ数 5 に到達 | 打ち切り | 困惑と同じ |
-
-※ `until_wall` と `unspecified` は同じ動き（突き当たりまで直進）になる。`next_count` の確率がこの 2 つに割れているだけなら不確かさとはみなさず、2 つの確率の合計が閾値（0.85）以上なら実行する。
 
 いずれの終了でも、キューに積んだ移動をすべて実行してから終了モーションに入り、その位置でクリア判定する。困惑の原因となったステップは実行しない。同一 state への再問い合わせは行わない。
 
@@ -92,6 +92,7 @@ flowchart LR
 const MAX_STEPS = 5;
 const DONE_TH = 0.8;   // 閾値は実データで調整
 const CONF_TH = 0.7;
+const UNTIL_WALL_CONF_TH = 0.6;  // 移動量が until_wall のときの閾値
 
 type End = 'done' | 'confused' | 'limit';
 
@@ -103,7 +104,8 @@ async function interpret(state): Promise<End> {
     if (a.is_done >= DONE_TH) return 'done';
     if (dir.choice === 'none' || cnt.choice === 'none') return 'done';
     if (dir.choice === 'unknown' || cnt.choice === 'unknown' ||
-        dir.confidence < CONF_TH || cnt.confidence < CONF_TH) return 'confused';
+        dir.confidence < CONF_TH ||
+        cnt.confidence < (cnt.choice === 'until_wall' ? UNTIL_WALL_CONF_TH : CONF_TH)) return 'confused';
 
     const step = { direction: dir.choice, count: cnt.choice };
     state.parsed_steps.push(step);
@@ -169,7 +171,7 @@ const canEnter = (m: Maze, x: number, y: number) =>
   x >= 0 && y >= 0 && x < m.size && y < m.size && m.grid[y][x] === 0;
 ```
 
-- **移動計算**：`until_wall` は次のマスが壁ブロックまたは外周になるまで直進。`until_junction` は隣接する通路が 3 つ以上のマスを分岐点と定義して停止する。移動量 unspecified（距離の明示なし）は、until_wall と同じく突き当たりまで直進する。数値指定で壁にぶつかる場合は、壁の手前で止まる。
+- **移動計算**：`until_wall` は次のマスが壁ブロックまたは外周になるまで直進。`until_junction` は隣接する通路が 3 つ以上のマスを分岐点と定義して停止する。距離の明示がない指示（「右へ」「まっすぐ」など）は until_wall として扱い、突き当たりまで直進する。数値指定で壁にぶつかる場合は、壁の手前で止まる。
 - **ステージ**：PoC では、迷路として成立するステージを事前に定義しておき、ランダムに読み込む。S / G の位置はステージごとに任意。
 - **難易度**：（マス, 向き）を状態とする幅優先探索で最少指示数（直進継続コスト 0、方向転換コスト 1）を求める。3 秒で話せるのは 2〜3 指示程度のため、最少指示数 2〜3 の迷路のみ採用する（全ステージについてユニットテストで保証する）。
 

@@ -82,7 +82,6 @@ const COUNT_JA: Record<Step["count"], string> = {
   "4": "4マス",
   until_wall: "突き当たりまで",
   until_junction: "分かれ道まで",
-  unspecified: "突き当たりまで",
 };
 
 export function StepChips({ steps }: { steps: readonly Step[] }) {

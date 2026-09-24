@@ -1,6 +1,4 @@
 import {
-  type ChoiceAnswer,
-  type CountLabel,
   isCount,
   isDirection,
   MAX_STEPS,
@@ -11,23 +9,8 @@ import {
 // Thresholds are starting points; tune them on real utterances.
 export const DONE_TH = 0.8;
 export const CONF_TH = 0.7;
-/** Combined probability required when the count is split between equivalent labels. */
-export const GROUP_PROB_TH = 0.85;
-
-/** Count labels that produce the same movement (see pathForStep). */
-const WALL_EQUIVALENT: ReadonlySet<CountLabel> = new Set(["until_wall", "unspecified"]);
-
-/**
- * Is the count answer certain enough to act on? A split between labels that
- * move identically (until_wall vs unspecified) is not real uncertainty.
- */
-export function isCountConfident(cnt: ChoiceAnswer<CountLabel>): boolean {
-  if (cnt.confidence >= CONF_TH) return true;
-  if (!WALL_EQUIVALENT.has(cnt.choice)) return false;
-  let p = 0;
-  for (const label of WALL_EQUIVALENT) p += cnt.probabilities[label] ?? 0;
-  return p >= GROUP_PROB_TH;
-}
+/** Looser threshold when the count is until_wall (also used for "no distance given"). */
+export const UNTIL_WALL_CONF_TH = 0.6;
 
 /** done: instructions used up / confused: could not understand / limit: MAX_STEPS reached. */
 export type End = "done" | "confused" | "limit";
@@ -44,7 +27,7 @@ export function decide(a: NextStepResponse): Decision {
     dir.choice === "unknown" ||
     cnt.choice === "unknown" ||
     dir.confidence < CONF_TH ||
-    !isCountConfident(cnt)
+    cnt.confidence < (cnt.choice === "until_wall" ? UNTIL_WALL_CONF_TH : CONF_TH)
   ) {
     return { kind: "end", end: "confused" };
   }

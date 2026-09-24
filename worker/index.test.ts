@@ -3,7 +3,7 @@ import type { NextStepResponse } from "../shared/protocol";
 import { createApp, parseNextStepRequest } from "./index";
 
 type SystemOne = (req: { state: { utterance: string } }, opts?: unknown) => Promise<unknown>;
-import { buildState, QUESTIONS } from "./jev";
+import { buildState, QUESTIONS, separateMovements } from "./jev";
 
 const fakeAnswers = {
   model: "jev-test",
@@ -32,7 +32,36 @@ const post = (app: ReturnType<typeof createApp>, body: unknown, env = { TYPESAFE
     env,
   );
 
+describe("separateMovements", () => {
+  it.each([
+    ["右下右下", "右、下、右、下"],
+    ["右下", "右、下"],
+    ["左上に2マス", "左、上に2マス"],
+    ["右まっすぐ下 1マス", "右まっすぐ、下 1マス"],
+    ["右まっすぐ 下 1マス", "右まっすぐ、下 1マス"],
+    ["右3下2", "右3、下2"],
+    ["右折して下", "右折して、下"],
+    ["  右に1マス", "右に1マス"],
+  ])("separates %j", (input, expected) => {
+    expect(separateMovements(input)).toBe(expected);
+  });
+
+  it.each([
+    "右に2マス、下に1マス",
+    "右に1マス。下に2マス",
+    "右側に突き当たりまで",
+    "ひだりに にます",
+    "",
+  ])("leaves %j unchanged", (input) => {
+    expect(separateMovements(input)).toBe(input);
+  });
+});
+
 describe("buildState", () => {
+  it("sends the split utterance to Jev", () => {
+    expect(buildState("右まっすぐ下 1マス", []).utterance).toBe("右まっすぐ、下 1マス");
+  });
+
   it("describes parsed steps in screen directions and numbers the next movement", () => {
     const s = buildState("右に3マス、下に曲がって", [{ direction: "right", count: "3" }]);
     expect(s.parsed_steps).toEqual([{ direction: "right", count: "3" }]);
@@ -63,16 +92,10 @@ describe("QUESTIONS", () => {
     expect(Object.keys(QUESTIONS.next_direction.criteria)).toEqual(
       expect.arrayContaining(["up", "down", "left", "right", "none", "unknown"]),
     );
+    // No distance means until_wall; a separate label would only split probability.
+    expect(Object.keys(QUESTIONS.next_count.criteria)).not.toContain("unspecified");
     expect(Object.keys(QUESTIONS.next_count.criteria)).toEqual(
-      expect.arrayContaining([
-        "1",
-        "4",
-        "until_wall",
-        "until_junction",
-        "unspecified",
-        "none",
-        "unknown",
-      ]),
+      expect.arrayContaining(["1", "4", "until_wall", "until_junction", "none", "unknown"]),
     );
   });
 });

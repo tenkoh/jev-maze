@@ -42,7 +42,7 @@ export function pathForStep(m: Maze, from: Pos, step: Step): Pos[] {
   const path: Pos[] = [];
   let cur = from;
   const limit =
-    step.count === "until_wall" || step.count === "until_junction" || step.count === "unspecified"
+    step.count === "until_wall" || step.count === "until_junction"
       ? Number.POSITIVE_INFINITY
       : Number(step.count);
   while (path.length < limit) {

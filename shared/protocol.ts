@@ -3,7 +3,8 @@
 export const DIRECTIONS = ["up", "right", "down", "left"] as const;
 export type Direction = (typeof DIRECTIONS)[number];
 
-export const COUNTS = ["1", "2", "3", "4", "until_wall", "until_junction", "unspecified"] as const;
+// A movement with no distance goes until the wall, so it is reported as until_wall.
+export const COUNTS = ["1", "2", "3", "4", "until_wall", "until_junction"] as const;
 export type Count = (typeof COUNTS)[number];
 
 /** One movement step extracted from the utterance. */
