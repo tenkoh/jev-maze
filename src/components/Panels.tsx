@@ -73,8 +73,8 @@ export function RecordingPanel({
   );
 }
 
-const ARROW = { north: "↑", east: "→", south: "↓", west: "←" } as const;
-const DIR_JA = { north: "上", east: "右", south: "下", west: "左" } as const;
+const ARROW = { up: "↑", right: "→", down: "↓", left: "←" } as const;
+const DIR_JA = { up: "上", right: "右", down: "下", left: "左" } as const;
 const COUNT_JA: Record<Step["count"], string> = {
   "1": "1マス",
   "2": "2マス",

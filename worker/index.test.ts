@@ -10,9 +10,9 @@ const fakeAnswers = {
   answers: {
     next_direction: {
       type: "choice",
-      choice: "east",
+      choice: "right",
       confidence: 0.9,
-      probabilities: { east: 0.95, north: 0.05 },
+      probabilities: { right: 0.95, up: 0.05 },
     },
     next_count: {
       type: "choice",
@@ -33,20 +33,22 @@ const post = (app: ReturnType<typeof createApp>, body: unknown, env = { TYPESAFE
   );
 
 describe("buildState", () => {
-  it("derives current_facing and turns from the last step", () => {
-    const s = buildState("右に3マス、左に曲がって", [{ direction: "east", count: "3" }]);
-    expect(s.current_facing).toBe("east");
-    expect(s.turns_from_current_facing).toEqual({
-      turn_right: "south",
-      turn_left: "north",
-      go_straight: "east",
-      turn_around: "west",
-    });
+  it("describes parsed steps in screen directions and numbers the next movement", () => {
+    const s = buildState("右に3マス、下に曲がって", [{ direction: "right", count: "3" }]);
+    expect(s.parsed_steps).toEqual([{ direction: "right", count: "3" }]);
+    expect(s.next_step_number).toBe(2);
+    expect(s.previous_direction).toBe("right");
   });
 
-  it("uses start_facing when nothing is parsed yet", () => {
+  it("has no previous direction before the first movement", () => {
     const s = buildState("上へ", []);
-    expect(s.current_facing).toBe(s.start_facing);
+    expect(s.next_step_number).toBe(1);
+    expect(s.previous_direction).toBeNull();
+  });
+
+  it("has no notion of facing", () => {
+    const keys = Object.keys(buildState("x", [{ direction: "up", count: "1" }]));
+    expect(keys.some((k) => k.includes("facing") || k.includes("turn"))).toBe(false);
   });
 
   it("never leaks maze layout into the state", () => {
@@ -59,7 +61,7 @@ describe("buildState", () => {
 describe("QUESTIONS", () => {
   it("offers none/unknown on both choices", () => {
     expect(Object.keys(QUESTIONS.next_direction.criteria)).toEqual(
-      expect.arrayContaining(["north", "east", "south", "west", "none", "unknown"]),
+      expect.arrayContaining(["up", "down", "left", "right", "none", "unknown"]),
     );
     expect(Object.keys(QUESTIONS.next_count.criteria)).toEqual(
       expect.arrayContaining([
@@ -88,11 +90,11 @@ describe("parseNextStepRequest", () => {
     [{ utterance: 1, parsedSteps: [] }, /utterance/],
     [{ utterance: "x".repeat(201), parsedSteps: [] }, /too long/],
     [{ utterance: "x", parsedSteps: "no" }, /parsedSteps/],
-    [{ utterance: "x", parsedSteps: [{ direction: "up", count: "1" }] }, /invalid step/],
+    [{ utterance: "x", parsedSteps: [{ direction: "north", count: "1" }] }, /invalid step/],
     [
       {
         utterance: "x",
-        parsedSteps: Array.from({ length: 5 }, () => ({ direction: "east", count: "1" })),
+        parsedSteps: Array.from({ length: 5 }, () => ({ direction: "right", count: "1" })),
       },
       /shorter/,
     ],
@@ -108,7 +110,8 @@ describe("POST /api/next-step", () => {
     const res = await post(app, { utterance: "右に3マス", parsedSteps: [] });
     expect(res.status).toBe(200);
     const body = (await res.json()) as NextStepResponse;
-    expect(body.nextDirection.choice).toBe("east");
+    expect(body.nextDirection.choice).toBe("right");
+    expect(body.nextDirection.probabilities).toEqual({ right: 0.95, up: 0.05 });
     expect(body.nextCount.choice).toBe("3");
     expect(body.isDone).toBe(0.02);
     expect(systemOne.mock.calls[0]?.[0].state.utterance).toBe("右に3マス");

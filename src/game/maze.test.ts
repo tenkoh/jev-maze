@@ -25,49 +25,49 @@ describe("parseMaze", () => {
 
 describe("pathForStep", () => {
   it("moves a numeric count of cells", () => {
-    expect(pathForStep(maze, maze.start, { direction: "east", count: "2" })).toEqual([
+    expect(pathForStep(maze, maze.start, { direction: "right", count: "2" })).toEqual([
       { x: 1, y: 2 },
       { x: 2, y: 2 },
     ]);
   });
 
   it("stops in front of a wall when the count is too large", () => {
-    expect(pathForStep(maze, { x: 1, y: 2 }, { direction: "north", count: "3" })).toEqual([]);
-    expect(pathForStep(maze, maze.start, { direction: "north", count: "4" })).toEqual([
+    expect(pathForStep(maze, { x: 1, y: 2 }, { direction: "up", count: "3" })).toEqual([]);
+    expect(pathForStep(maze, maze.start, { direction: "up", count: "4" })).toEqual([
       { x: 0, y: 1 },
       { x: 0, y: 0 },
     ]);
   });
 
   it("goes until the wall or the edge", () => {
-    const path = pathForStep(maze, maze.start, { direction: "east", count: "until_wall" });
+    const path = pathForStep(maze, maze.start, { direction: "right", count: "until_wall" });
     expect(path.at(-1)).toEqual({ x: 4, y: 2 });
     expect(path).toHaveLength(4);
   });
 
   it("treats an unspecified count like until_wall", () => {
-    expect(pathForStep(maze, maze.start, { direction: "east", count: "unspecified" })).toEqual(
-      pathForStep(maze, maze.start, { direction: "east", count: "until_wall" }),
+    expect(pathForStep(maze, maze.start, { direction: "right", count: "unspecified" })).toEqual(
+      pathForStep(maze, maze.start, { direction: "right", count: "until_wall" }),
     );
   });
 
   it("stops at the next junction", () => {
-    // (2,2) has neighbors west, east and north open -> junction.
+    // (2,2) has neighbors left, right and up open -> junction.
     expect(isJunction(maze, { x: 2, y: 2 })).toBe(true);
-    expect(pathForStep(maze, maze.start, { direction: "east", count: "until_junction" })).toEqual([
+    expect(pathForStep(maze, maze.start, { direction: "right", count: "until_junction" })).toEqual([
       { x: 1, y: 2 },
       { x: 2, y: 2 },
     ]);
   });
 
   it("does not stop on the starting cell even if it is a junction", () => {
-    const path = pathForStep(maze, { x: 2, y: 2 }, { direction: "east", count: "until_junction" });
-    // (3,2) has only west/east open; (4,2) has west, north, south -> junction.
+    const path = pathForStep(maze, { x: 2, y: 2 }, { direction: "right", count: "until_junction" });
+    // (3,2) has only left/right open; (4,2) has left, up, down -> junction.
     expect(path.at(-1)).toEqual({ x: 4, y: 2 });
   });
 
   it("walks to the wall when there is no junction ahead", () => {
-    const path = pathForStep(maze, { x: 0, y: 4 }, { direction: "east", count: "until_junction" });
+    const path = pathForStep(maze, { x: 0, y: 4 }, { direction: "right", count: "until_junction" });
     expect(path.at(-1)).toEqual({ x: 4, y: 4 });
   });
 });

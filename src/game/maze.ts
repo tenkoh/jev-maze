@@ -12,10 +12,10 @@ export type Maze = {
 };
 
 export const DELTA: Record<Direction, readonly [number, number]> = {
-  north: [0, -1],
-  east: [1, 0],
-  south: [0, 1],
-  west: [-1, 0],
+  up: [0, -1],
+  right: [1, 0],
+  down: [0, 1],
+  left: [-1, 0],
 };
 
 export const samePos = (a: Pos, b: Pos): boolean => a.x === b.x && a.y === b.y;

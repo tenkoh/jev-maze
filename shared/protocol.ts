@@ -1,6 +1,6 @@
 // Types shared by the browser app and the Worker API.
 
-export const DIRECTIONS = ["north", "east", "south", "west"] as const;
+export const DIRECTIONS = ["up", "right", "down", "left"] as const;
 export type Direction = (typeof DIRECTIONS)[number];
 
 export const COUNTS = ["1", "2", "3", "4", "until_wall", "until_junction", "unspecified"] as const;
@@ -35,7 +35,6 @@ export type NextStepResponse = {
   model: string;
 };
 
-export const START_FACING: Direction = "east";
 export const MAX_UTTERANCE_LENGTH = 200;
 export const MAX_STEPS = 5;
 
@@ -50,20 +49,3 @@ export const isStep = (v: unknown): v is Step =>
   v !== null &&
   isDirection((v as Record<string, unknown>)["direction"]) &&
   isCount((v as Record<string, unknown>)["count"]);
-
-/** The facing after the parsed steps: the last step's direction, or the start facing. */
-export const currentFacing = (steps: readonly Step[]): Direction =>
-  steps.at(-1)?.direction ?? START_FACING;
-
-const RIGHT_OF: Record<Direction, Direction> = {
-  north: "east",
-  east: "south",
-  south: "west",
-  west: "north",
-};
-
-export const turnRight = (d: Direction): Direction => RIGHT_OF[d];
-export const turnLeft = (d: Direction): Direction =>
-  // Three right turns make a left turn.
-  turnRight(turnRight(turnRight(d)));
-export const turnBack = (d: Direction): Direction => turnRight(turnRight(d));

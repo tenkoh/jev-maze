@@ -10,8 +10,8 @@ describe("MoveQueue", () => {
     const moves: Pos[] = [];
     const q = new MoveQueue(maze, maze.start, { onMove: (p) => moves.push(p) }, 0, noSleep);
 
-    q.enqueue({ direction: "east", count: "until_wall" });
-    q.enqueue({ direction: "south", count: "2" });
+    q.enqueue({ direction: "right", count: "until_wall" });
+    q.enqueue({ direction: "down", count: "2" });
     await q.drain();
 
     expect(moves).toEqual([
@@ -26,17 +26,17 @@ describe("MoveQueue", () => {
 
   it("plans ahead of the animation", () => {
     const q = new MoveQueue(maze, maze.start, { onMove: () => {} }, 0, () => new Promise(() => {}));
-    q.enqueue({ direction: "east", count: "1" });
-    expect(q.enqueue({ direction: "south", count: "1" })).toEqual([{ x: 1, y: 1 }]);
+    q.enqueue({ direction: "right", count: "1" });
+    expect(q.enqueue({ direction: "down", count: "1" })).toEqual([{ x: 1, y: 1 }]);
     expect(q.finalPosition).toEqual({ x: 1, y: 1 });
   });
 
   it("reports a bump when blocked immediately", async () => {
     const onBump = vi.fn<NonNullable<MoveEvents["onBump"]>>();
     const q = new MoveQueue(maze, maze.start, { onMove: () => {}, onBump }, 0, noSleep);
-    q.enqueue({ direction: "north", count: "1" });
+    q.enqueue({ direction: "up", count: "1" });
     await q.drain();
-    expect(onBump).toHaveBeenCalledWith("north");
+    expect(onBump).toHaveBeenCalledWith("up");
     expect(q.finalPosition).toEqual(maze.start);
   });
 
@@ -49,8 +49,8 @@ describe("MoveQueue", () => {
       0,
       noSleep,
     );
-    q.enqueue({ direction: "east", count: "1" });
-    q.enqueue({ direction: "east", count: "1" });
+    q.enqueue({ direction: "right", count: "1" });
+    q.enqueue({ direction: "right", count: "1" });
     await q.drain();
     expect(pending).toEqual([1, 2, 1, 0]);
   });
@@ -59,7 +59,7 @@ describe("MoveQueue", () => {
     const onMove = vi.fn<MoveEvents["onMove"]>();
     const q = new MoveQueue(maze, maze.start, { onMove }, 0, noSleep);
     q.cancel();
-    q.enqueue({ direction: "east", count: "3" });
+    q.enqueue({ direction: "right", count: "3" });
     await q.drain();
     expect(onMove).not.toHaveBeenCalled();
   });

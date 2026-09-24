@@ -20,9 +20,9 @@ const answer = (
 
 describe("decide", () => {
   it("returns a step for a confident answer", () => {
-    expect(decide(answer("east", "3"))).toEqual({
+    expect(decide(answer("right", "3"))).toEqual({
       kind: "step",
-      step: { direction: "east", count: "3" },
+      step: { direction: "right", count: "3" },
     });
   });
 
@@ -35,7 +35,7 @@ describe("decide", () => {
 
   it("ends as done when direction or count is none", () => {
     expect(decide(answer("none", "2"))).toEqual({ kind: "end", end: "done" });
-    expect(decide(answer("east", "none"))).toEqual({ kind: "end", end: "done" });
+    expect(decide(answer("right", "none"))).toEqual({ kind: "end", end: "done" });
     // none wins over unknown / low confidence (priority 2 before 3)
     expect(decide(answer("none", "unknown", { dirConf: 0.2 }))).toEqual({
       kind: "end",
@@ -45,9 +45,12 @@ describe("decide", () => {
 
   it("ends as confused on unknown or low confidence", () => {
     expect(decide(answer("unknown", "2"))).toEqual({ kind: "end", end: "confused" });
-    expect(decide(answer("east", "unknown"))).toEqual({ kind: "end", end: "confused" });
-    expect(decide(answer("east", "2", { dirConf: 0.5 }))).toEqual({ kind: "end", end: "confused" });
-    expect(decide(answer("east", "2", { cntConf: 0.69 }))).toEqual({
+    expect(decide(answer("right", "unknown"))).toEqual({ kind: "end", end: "confused" });
+    expect(decide(answer("right", "2", { dirConf: 0.5 }))).toEqual({
+      kind: "end",
+      end: "confused",
+    });
+    expect(decide(answer("right", "2", { cntConf: 0.69 }))).toEqual({
       kind: "end",
       end: "confused",
     });
@@ -56,15 +59,15 @@ describe("decide", () => {
 
 describe("decide: equivalent count labels", () => {
   it("accepts a split between until_wall and unspecified (same movement)", () => {
-    const a = answer("south", "until_wall", {
+    const a = answer("down", "until_wall", {
       cntConf: 0.3,
       cntProbs: { until_wall: 0.5, unspecified: 0.43, "1": 0.04 },
     });
-    expect(decide(a)).toEqual({ kind: "step", step: { direction: "south", count: "until_wall" } });
+    expect(decide(a)).toEqual({ kind: "step", step: { direction: "down", count: "until_wall" } });
   });
 
   it("still rejects when the equivalent group is not dominant", () => {
-    const a = answer("south", "unspecified", {
+    const a = answer("down", "unspecified", {
       cntConf: 0.3,
       cntProbs: { unspecified: 0.45, until_wall: 0.3, until_junction: 0.25 },
     });
@@ -72,14 +75,14 @@ describe("decide: equivalent count labels", () => {
   });
 
   it("does not group other labels", () => {
-    const a = answer("south", "2", { cntConf: 0.3, cntProbs: { "2": 0.5, "3": 0.5 } });
+    const a = answer("down", "2", { cntConf: 0.3, cntProbs: { "2": 0.5, "3": 0.5 } });
     expect(decide(a)).toEqual({ kind: "end", end: "confused" });
   });
 });
 
 describe("interpret", () => {
   it("emits steps in order and passes the growing parsed list", async () => {
-    const script = [answer("east", "3"), answer("north", "until_wall"), answer("none", "none")];
+    const script = [answer("right", "3"), answer("up", "until_wall"), answer("none", "none")];
     const seen: Step[][] = [];
     const ask = vi.fn<AskNextStep>(async (_u: string, parsed: Step[]) => {
       seen.push(parsed);
@@ -94,8 +97,8 @@ describe("interpret", () => {
     expect(result).toEqual({
       end: "done",
       steps: [
-        { direction: "east", count: "3" },
-        { direction: "north", count: "until_wall" },
+        { direction: "right", count: "3" },
+        { direction: "up", count: "until_wall" },
       ],
     });
     expect(onStep).toHaveBeenCalledTimes(2);
@@ -103,7 +106,7 @@ describe("interpret", () => {
   });
 
   it("does not execute the step that caused confusion", async () => {
-    const script = [answer("east", "2"), answer("south", "2", { dirConf: 0.3 })];
+    const script = [answer("right", "2"), answer("down", "2", { dirConf: 0.3 })];
     const onStep = vi.fn<(step: Step) => void>();
     const result = await interpret(
       "x",
@@ -111,12 +114,12 @@ describe("interpret", () => {
       onStep,
     );
     expect(result.end).toBe("confused");
-    expect(result.steps).toEqual([{ direction: "east", count: "2" }]);
+    expect(result.steps).toEqual([{ direction: "right", count: "2" }]);
     expect(onStep).toHaveBeenCalledTimes(1);
   });
 
   it("stops at MAX_STEPS", async () => {
-    const ask = vi.fn<AskNextStep>(async () => answer("east", "1"));
+    const ask = vi.fn<AskNextStep>(async () => answer("right", "1"));
     const result = await interpret("x", ask, () => {});
     expect(result.end).toBe("limit");
     expect(result.steps).toHaveLength(5);

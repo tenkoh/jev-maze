@@ -46,7 +46,8 @@ src/App.tsx            ゲームフロー（カウントダウン → 録音 →
 ### Jev の使い方（仕様からの補足）
 
 - 1 リクエストで `next_direction`（Choice）、`next_count`（Choice）、`is_done`（Noul）の 3 問を並列に聞く。
-- 「曲がる」の変換表（`turns_from_current_facing`）と「何番目の移動か」（`next_step_number`）は、コードが計算して state に入れる。Jev には表を引かせるだけにして、数える処理や間接的な推論を避ける。
+- 方向はすべて画面上の方向として扱う。キャラクターに向きはないので、「右に曲がって」も画面の右になる。仕様書の「曲がる は `current_facing` 基準」から変更した。方向の値は、Jev の選択肢からアプリ内部まで `up / down / left / right` に統一している（仕様書の東西南北は使わない）。
+- 「何番目の移動か」（`next_step_number`）はコードが数えて state に入れる。方向の質問には「方向語が出るたびに次の移動」という区切りのルールを書き、別の移動を選んでしまう誤りを防ぐ。
 - 迷路の壁やゴールは state に入れない（仕様の「忠実な翻訳者」方針）。
 - `until_wall` と `unspecified` は同じ動きになる。このため確率がこの 2 つに割れているときは合算して判定する（`GROUP_PROB_TH = 0.85`、`src/game/interpret.ts`）。
 - 閾値（`DONE_TH = 0.8`、`CONF_TH = 0.7`）は暫定値。実際の発話データで調整する。
