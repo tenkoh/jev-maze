@@ -1,0 +1,20 @@
+# dependencies
+node_modules/
+
+# build outputs
+dist/
+.wrangler/
+*.tsbuildinfo
+
+# secrets (Cloudflare Workers local dev)
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.env
+.env.*
+!.env.example
+
+# misc
+.DS_Store
+*.log
+coverage/

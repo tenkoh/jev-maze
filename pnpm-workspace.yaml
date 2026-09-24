@@ -1,0 +1,11 @@
+# Supply-chain safety settings (see https://pnpm.io/settings)
+# Only install versions that have been published for at least 1 week (minutes).
+minimumReleaseAge: 10080
+# Dependency lifecycle scripts (preinstall/install/postinstall) are never run
+# unless explicitly allowed below. Fail the install on any unreviewed script.
+strictDepBuilds: true
+allowBuilds:
+  # Both scripts only re-download the platform binary as a fallback; the binary
+  # already comes from optionalDependencies (@esbuild/*, @cloudflare/workerd-*).
+  esbuild: false
+  workerd: false
