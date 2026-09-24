@@ -78,11 +78,11 @@ export const QUESTIONS = {
       "3": "Exactly three cells (3マス, みマス, 三つ).",
       "4": "Four or more cells (4マス, 5マス, ...).",
       until_wall:
-        "Until the wall / as far as possible (突き当たりまで, 突き当たり, 行き止まりまで, 壁まで, 端まで, ずっと, 行けるところまで).",
+        "Until the wall / as far as possible (突き当たりまで, 突き当たり, 行き止まりまで, 壁まで, 端まで, ずっと, 行けるところまで). Also まっすぐ / まっすぐ進む with no number (右にまっすぐ, まっすぐ行って); まっすぐ2マス is 2, not until_wall.",
       until_junction:
         "Until the next branch or intersection (次の分かれ道まで, 分岐まで, 交差点まで, 曲がり角まで).",
       unspecified:
-        "That movement names a direction but says nothing about distance (右へ進んで, 下に行って). Not used when a distance or a stopping point such as 分かれ道 is mentioned for it.",
+        "That movement names a direction but says nothing about distance (右へ進んで, 下に行って). Not used when a distance, a stopping point such as 分かれ道, or まっすぐ is mentioned for it.",
       none: "Every movement in `utterance` is already in `parsed_steps`; there is no next step.",
       unknown: "A distance is mentioned but cannot be understood.",
     },
