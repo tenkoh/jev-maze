@@ -4,6 +4,7 @@ import { fetchNextStep } from "./api";
 import { MazeBoard } from "./components/MazeBoard";
 import { CountdownOverlay, RecordingPanel, StepChips, TranscriptBox } from "./components/Panels";
 import type { RobotPose } from "./components/Robot";
+import { listenStartOffset } from "./game/countdown";
 import { type End, interpret } from "./game/interpret";
 import { type Maze, type Pos, samePos } from "./game/maze";
 import { MoveQueue } from "./game/moveQueue";
@@ -19,6 +20,8 @@ import {
 const CELL_MS = 280;
 const COUNTDOWN_MS = 1000;
 const RECORD_MS = 3000;
+/** Start recognition this long before recording so the first words are not clipped. */
+const LISTEN_LEAD_MS = 500;
 
 type FailReason = End | "error" | "no_speech" | "mic";
 
@@ -46,6 +49,7 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 const params = new URLSearchParams(window.location.search);
 const DEBUG = params.has("debug");
+
 const initialStage = findStage(params.get("stage")) ?? pickStage();
 
 export function App() {
@@ -99,28 +103,49 @@ export function App() {
 
       let utterance: string;
       if (typed === undefined) {
-        let session: SpeechSession;
-        try {
-          // Start recognition during the countdown so the first words are not cut off.
-          session = startListening();
-        } catch (e) {
-          failMic(e);
-          return;
-        }
-        cleanup.current = () => session.abort();
+        // Start recognition shortly before recording (LISTEN_LEAD_MS): early enough to
+        // catch the first words, late enough to ignore most countdown noise.
+        let session: SpeechSession | undefined;
+        const listen = (): SpeechSession | undefined => {
+          try {
+            const s = startListening();
+            cleanup.current = () => s.abort();
+            return s;
+          } catch (e) {
+            failMic(e);
+            return undefined;
+          }
+        };
         // Stop right away if the microphone fails (e.g. permission denied) instead of
         // letting the player talk into a dead recognizer.
         const micFailed = () => {
-          if (!session.failure) return false;
+          if (!session?.failure) return false;
           session.abort();
           failMic(session.failure);
           return true;
         };
-        for (const n of [3, 2, 1]) {
+        const ticks = [3, 2, 1];
+        const listenAt = listenStartOffset(ticks.length * COUNTDOWN_MS, LISTEN_LEAD_MS);
+        for (const [i, n] of ticks.entries()) {
           setPhase({ name: "countdown", n });
-          // oxlint-disable-next-line no-await-in-loop -- the countdown is sequential by nature
-          await sleep(COUNTDOWN_MS);
+          const tickStart = i * COUNTDOWN_MS;
+          if (!session && listenAt < tickStart + COUNTDOWN_MS) {
+            // oxlint-disable-next-line no-await-in-loop -- the countdown is sequential by nature
+            await sleep(listenAt - tickStart);
+            if (!alive()) return;
+            session = listen();
+            if (!session) return;
+            // oxlint-disable-next-line no-await-in-loop
+            await sleep(tickStart + COUNTDOWN_MS - listenAt);
+          } else {
+            // oxlint-disable-next-line no-await-in-loop
+            await sleep(COUNTDOWN_MS);
+          }
           if (!alive() || micFailed()) return;
+        }
+        if (!session) {
+          session = listen();
+          if (!session) return;
         }
         setPhase({ name: "recording", startedAt: performance.now() });
         await sleep(RECORD_MS);
