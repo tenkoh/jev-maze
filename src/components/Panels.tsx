@@ -11,7 +11,7 @@ export function CountdownOverlay({ n }: { n: number }) {
   );
 }
 
-export function MicIcon({ size = 28 }: { size?: number }) {
+function MicIcon({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
       <rect x="8.5" y="2.5" width="7" height="12" rx="3.5" fill="currentColor" />

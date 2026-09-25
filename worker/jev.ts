@@ -1,5 +1,5 @@
 import { choice, noul, type TypeSafeClient } from "@typesafe-ai/sdk";
-import type { NextStepResponse, Step } from "../shared/protocol";
+import type { ChoiceAnswer, NextStepResponse, Step } from "../shared/protocol";
 
 /**
  * Put a separator (、) before every direction kanji that is not already at the start
@@ -98,6 +98,12 @@ export const QUESTIONS = {
   ),
 };
 
+const toChoiceAnswer = <L extends string>(a: ChoiceAnswer<L>): ChoiceAnswer<L> => ({
+  choice: a.choice,
+  confidence: a.confidence,
+  probabilities: { ...a.probabilities },
+});
+
 export async function askNextStep(
   client: Pick<TypeSafeClient, "systemOne">,
   utterance: string,
@@ -110,16 +116,8 @@ export async function askNextStep(
   );
   const { next_direction, next_count, is_done } = res.answers;
   return {
-    nextDirection: {
-      choice: next_direction.choice,
-      confidence: next_direction.confidence,
-      probabilities: { ...next_direction.probabilities },
-    },
-    nextCount: {
-      choice: next_count.choice,
-      confidence: next_count.confidence,
-      probabilities: { ...next_count.probabilities },
-    },
+    nextDirection: toChoiceAnswer(next_direction),
+    nextCount: toChoiceAnswer(next_count),
     isDone: is_done.noul,
     model: res.model,
   };

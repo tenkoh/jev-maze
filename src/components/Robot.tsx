@@ -1,6 +1,9 @@
 export type RobotPose = "idle" | "moving" | "thinking" | "confused" | "happy" | "stopped" | "bump";
 
 const INK = "#1f2a37";
+const SHELL = "#9fd0f7";
+/** Outlined light-blue body part (arms, legs). */
+const part = { fill: SHELL, stroke: INK, strokeWidth: 2 } as const;
 
 /** The player character, drawn in a 100x100 cell box. */
 export function Robot({ pose }: { pose: RobotPose }) {
@@ -15,63 +18,29 @@ export function Robot({ pose }: { pose: RobotPose }) {
         {/* arms */}
         {happy ? (
           <>
-            <path d="M38 68 L28 56" stroke={INK} strokeWidth="5" strokeLinecap="round" />
-            <path d="M38 68 L28 56" stroke="#9fd0f7" strokeWidth="2.6" strokeLinecap="round" />
-            <path d="M62 68 L72 56" stroke={INK} strokeWidth="5" strokeLinecap="round" />
-            <path d="M62 68 L72 56" stroke="#9fd0f7" strokeWidth="2.6" strokeLinecap="round" />
+            {["M38 68 L28 56", "M62 68 L72 56"].map((d) => (
+              <g key={d} strokeLinecap="round">
+                <path d={d} stroke={INK} strokeWidth="5" />
+                <path d={d} stroke={SHELL} strokeWidth="2.6" />
+              </g>
+            ))}
           </>
         ) : (
           <>
-            <rect
-              x="32"
-              y="64"
-              width="6"
-              height="12"
-              rx="3"
-              fill="#9fd0f7"
-              stroke={INK}
-              strokeWidth="2"
-            />
-            <rect
-              x="62"
-              y="64"
-              width="6"
-              height="12"
-              rx="3"
-              fill="#9fd0f7"
-              stroke={INK}
-              strokeWidth="2"
-            />
+            <rect x="32" y="64" width="6" height="12" rx="3" {...part} />
+            <rect x="62" y="64" width="6" height="12" rx="3" {...part} />
           </>
         )}
         {/* legs + torso */}
-        <rect
-          x="42"
-          y="78"
-          width="6"
-          height="8"
-          rx="2"
-          fill="#9fd0f7"
-          stroke={INK}
-          strokeWidth="2"
-        />
-        <rect
-          x="52"
-          y="78"
-          width="6"
-          height="8"
-          rx="2"
-          fill="#9fd0f7"
-          stroke={INK}
-          strokeWidth="2"
-        />
+        <rect x="42" y="78" width="6" height="8" rx="2" {...part} />
+        <rect x="52" y="78" width="6" height="8" rx="2" {...part} />
         <rect
           x="38"
           y="60"
           width="24"
           height="21"
           rx="7"
-          fill="#9fd0f7"
+          fill={SHELL}
           stroke={INK}
           strokeWidth="2.5"
         />

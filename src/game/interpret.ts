@@ -7,10 +7,10 @@ import {
 } from "../../shared/protocol";
 
 // Thresholds are starting points; tune them on real utterances.
-export const DONE_TH = 0.8;
-export const CONF_TH = 0.7;
+const DONE_TH = 0.8;
+const CONF_TH = 0.7;
 /** Looser threshold when the count is until_wall (also used for "no distance given"). */
-export const UNTIL_WALL_CONF_TH = 0.6;
+const UNTIL_WALL_CONF_TH = 0.6;
 
 /** done: instructions used up / confused: could not understand / limit: MAX_STEPS reached. */
 export type End = "done" | "confused" | "limit";

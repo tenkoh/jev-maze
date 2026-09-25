@@ -123,7 +123,12 @@ export function startListening(lang = "ja-JP"): SpeechSession {
       if (!ended) {
         const flushed = new Promise<void>((r) => endWaiters.push(r));
         rec.stop();
-        await Promise.race([flushed, new Promise((r) => setTimeout(r, FLUSH_TIMEOUT_MS))]);
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        await Promise.race([
+          flushed,
+          new Promise((r) => (timer = setTimeout(r, FLUSH_TIMEOUT_MS))),
+        ]);
+        clearTimeout(timer);
       }
       if (fatal) throw fatal;
       return transcript.trim();

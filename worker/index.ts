@@ -7,7 +7,7 @@ export type Env = { TYPESAFE_API_KEY?: string };
 
 type Client = Pick<TypeSafeClient, "systemOne">;
 
-export const defaultClientFactory = (apiKey: string): Client =>
+const defaultClientFactory = (apiKey: string): Client =>
   // A game waits on this call, so keep retries short.
   new TypeSafeClient({ apiKey, timeout: 8_000, retry: { maxRetries: 1 } });
 

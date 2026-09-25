@@ -10,7 +10,7 @@ export type MoveEvents = {
   onPendingChange?: (pending: number) => void;
 };
 
-const defaultSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+export const defaultSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 /**
  * Serializes step animations. Paths are computed at enqueue time from the

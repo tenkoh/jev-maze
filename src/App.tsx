@@ -4,10 +4,9 @@ import { fetchNextStep } from "./api";
 import { MazeBoard } from "./components/MazeBoard";
 import { CountdownOverlay, RecordingPanel, StepChips, TranscriptBox } from "./components/Panels";
 import type { RobotPose } from "./components/Robot";
-import { listenStartOffset } from "./game/countdown";
 import { type End, interpret } from "./game/interpret";
 import { type Maze, type Pos, samePos } from "./game/maze";
-import { MoveQueue } from "./game/moveQueue";
+import { defaultSleep as sleep, MoveQueue } from "./game/moveQueue";
 import { findStage, pickStage, STAGES } from "./game/stages";
 import {
   describeSpeechError,
@@ -34,7 +33,7 @@ type Phase =
   | { name: "running"; utterance: string | null; interpreting: boolean }
   | { name: "result"; utterance: string; clear: boolean; reason: FailReason; detail?: string };
 
-export type TraceEntry = { steps: number; ms: number; answer: NextStepResponse };
+type TraceEntry = { steps: number; ms: number; answer: NextStepResponse };
 
 const RESULT_MESSAGE: Record<FailReason, string> = {
   done: "ゴールにたどり着けませんでした",
@@ -46,8 +45,6 @@ const RESULT_MESSAGE: Record<FailReason, string> = {
 };
 
 const CONFETTI = [1, 2, 3, 4, 5, 6] as const;
-
-const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 const params = new URLSearchParams(window.location.search);
 const DEBUG = params.has("debug");
@@ -138,7 +135,7 @@ export function App() {
           return true;
         };
         const ticks = [3, 2, 1];
-        const listenAt = listenStartOffset(ticks.length * COUNTDOWN_MS, LISTEN_LEAD_MS);
+        const listenAt = ticks.length * COUNTDOWN_MS - LISTEN_LEAD_MS;
         for (const [i, n] of ticks.entries()) {
           setPhase({ name: "countdown", n });
           const tickStart = i * COUNTDOWN_MS;
@@ -164,7 +161,6 @@ export function App() {
         await sleep(RECORD_MS);
         if (!alive() || micFailed()) return;
         setPhase({ name: "running", utterance: null, interpreting: true });
-        setPose("thinking");
         try {
           utterance = await session.finish();
         } catch (e) {
@@ -183,7 +179,6 @@ export function App() {
       }
 
       setPhase({ name: "running", utterance, interpreting: true });
-      setPose("thinking");
       const queue = new MoveQueue(
         maze,
         maze.start,
@@ -210,7 +205,7 @@ export function App() {
           async (u, parsed) => {
             const t0 = performance.now();
             const answer = await fetchNextStep(u, parsed, controller.signal);
-            if (alive()) {
+            if (DEBUG && alive()) {
               setTrace((t) => [...t, { steps: parsed.length, ms: performance.now() - t0, answer }]);
             }
             return answer;

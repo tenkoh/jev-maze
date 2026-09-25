@@ -22,8 +22,8 @@ export function MazeBoard({ maze, robot, pose, cellMs, hidden = false, overlay }
   const size = maze.size * CELL + PAD * 2;
   const cells = maze.grid.flatMap((row, y) =>
     row.map((cell, x) => {
-      const isStart = x === maze.start.x && y === maze.start.y;
-      const isGoal = x === maze.goal.x && y === maze.goal.y;
+      const isStart = samePos(maze.start, { x, y });
+      const isGoal = samePos(maze.goal, { x, y });
       const actual = cell === 1 ? "wall" : isStart ? "start" : isGoal ? "goal" : "path";
       const faceDown = hidden && (actual === "wall" || actual === "path");
       const kind = faceDown ? "covered" : actual;

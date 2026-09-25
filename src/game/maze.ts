@@ -11,7 +11,7 @@ export type Maze = {
   goal: Pos;
 };
 
-export const DELTA: Record<Direction, readonly [number, number]> = {
+const DELTA: Record<Direction, readonly [number, number]> = {
   up: [0, -1],
   right: [1, 0],
   down: [0, 1],
@@ -20,12 +20,12 @@ export const DELTA: Record<Direction, readonly [number, number]> = {
 
 export const samePos = (a: Pos, b: Pos): boolean => a.x === b.x && a.y === b.y;
 
-export const canEnter = (m: Maze, x: number, y: number): boolean =>
+const canEnter = (m: Maze, x: number, y: number): boolean =>
   x >= 0 && y >= 0 && x < m.size && y < m.size && m.grid[y]?.[x] === 0;
 
 const next = (p: Pos, d: Direction): Pos => ({ x: p.x + DELTA[d][0], y: p.y + DELTA[d][1] });
 
-export const openNeighborCount = (m: Maze, p: Pos): number =>
+const openNeighborCount = (m: Maze, p: Pos): number =>
   DIRECTIONS.filter((d) => {
     const n = next(p, d);
     return canEnter(m, n.x, n.y);

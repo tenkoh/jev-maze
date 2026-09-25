@@ -1,4 +1,4 @@
-import type { NextStepResponse, Step } from "../shared/protocol";
+import type { NextStepRequest, NextStepResponse, Step } from "../shared/protocol";
 
 export async function fetchNextStep(
   utterance: string,
@@ -8,7 +8,7 @@ export async function fetchNextStep(
   const res = await fetch("/api/next-step", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ utterance, parsedSteps }),
+    body: JSON.stringify({ utterance, parsedSteps } satisfies NextStepRequest),
     ...(signal ? { signal } : {}),
   });
   if (!res.ok) throw new Error(`next-step failed: ${res.status}`);
