@@ -7,6 +7,7 @@ import type { RobotPose } from "./components/Robot";
 import { type End, interpret } from "./game/interpret";
 import { type Maze, type Pos, samePos } from "./game/maze";
 import { defaultSleep as sleep, MoveQueue } from "./game/moveQueue";
+import { fixMisheardCounts } from "./game/normalize";
 import { findStage, pickStage, STAGES } from "./game/stages";
 import {
   describeSpeechError,
@@ -59,6 +60,7 @@ export function App() {
   const [pending, setPending] = useState(0);
   const [steps, setSteps] = useState<Step[]>([]);
   const [trace, setTrace] = useState<TraceEntry[]>([]);
+  const [rawUtterance, setRawUtterance] = useState<string | null>(null);
   const runId = useRef(0);
   const cleanup = useRef<(() => void) | null>(null);
 
@@ -77,6 +79,7 @@ export function App() {
       setPending(0);
       setSteps([]);
       setTrace([]);
+      setRawUtterance(null);
     },
     [abortRun],
   );
@@ -171,6 +174,8 @@ export function App() {
       } else {
         utterance = typed.trim();
       }
+      if (DEBUG) setRawUtterance(utterance);
+      utterance = fixMisheardCounts(utterance);
 
       if (utterance === "") {
         setPose("confused");
@@ -282,6 +287,7 @@ export function App() {
         <DebugPanel
           maze={maze}
           trace={trace}
+          rawUtterance={rawUtterance}
           busy={phase.name !== "idle" && phase.name !== "result"}
           onRun={(text) => void play(text)}
           onStage={changeStage}
@@ -377,12 +383,14 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
 function DebugPanel({
   maze,
   trace,
+  rawUtterance,
   busy,
   onRun,
   onStage,
 }: {
   maze: Maze;
   trace: TraceEntry[];
+  rawUtterance: string | null;
   busy: boolean;
   onRun: (text: string) => void;
   onStage: (m: Maze) => void;
@@ -426,6 +434,7 @@ function DebugPanel({
           テキストで実行
         </button>
       </form>
+      {rawUtterance !== null && <p className="row">raw: {rawUtterance || "(empty)"}</p>}
       {trace.length > 0 && (
         <table className="debug__trace">
           <thead>
