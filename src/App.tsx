@@ -7,7 +7,7 @@ import type { RobotPose } from "./components/Robot";
 import { type End, interpret } from "./game/interpret";
 import { type Maze, type Pos, samePos } from "./game/maze";
 import { defaultSleep as sleep, MoveQueue } from "./game/moveQueue";
-import { fixMisheardCounts } from "./game/normalize";
+import { fixMisheard } from "./game/normalize";
 import { findStage, pickStage, STAGES } from "./game/stages";
 import {
   describeSpeechError,
@@ -175,7 +175,7 @@ export function App() {
         utterance = typed.trim();
       }
       if (DEBUG) setRawUtterance(utterance);
-      utterance = fixMisheardCounts(utterance);
+      utterance = fixMisheard(utterance);
 
       if (utterance === "") {
         setPose("confused");

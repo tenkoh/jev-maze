@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { fixMisheardCounts } from "./normalize";
+import { fixMisheard } from "./normalize";
 
-describe("fixMisheardCounts", () => {
+describe("fixMisheard", () => {
   it.each([
     ["上にマス", "上2マス"],
     ["上ににマス", "上に2マス"],
@@ -13,8 +13,16 @@ describe("fixMisheardCounts", () => {
     ["上に市ます", "上に1マス"],
     ["左市マス", "左1マス"],
     ["上にマス右に行きます", "上2マス右に1マス"],
+    ["右まっすぐした", "右まっすぐ下"],
+    ["右まっすぐしたにマス", "右まっすぐ下2マス"],
+    ["した2マス", "下2マス"],
+    ["右2マスした", "右2マス下"],
+    ["右突き当たりまでした", "右突き当たりまで下"],
+    ["右、した", "右、下"],
+    ["右した", "右下"],
+    ["右に曲がってしたに行きます", "右に曲がって下に1マス"],
   ])("fixes %j", (input, expected) => {
-    expect(fixMisheardCounts(input)).toBe(expected);
+    expect(fixMisheard(input)).toBe(expected);
   });
 
   it.each([
@@ -23,8 +31,11 @@ describe("fixMisheardCounts", () => {
     "まっすぐ行きます",
     "右に行って下に突き当たりまで",
     "右に曲がって行きます",
+    "右折した",
+    "右に移動した",
+    "右にした",
     "",
   ])("leaves %j unchanged", (input) => {
-    expect(fixMisheardCounts(input)).toBe(input);
+    expect(fixMisheard(input)).toBe(input);
   });
 });
