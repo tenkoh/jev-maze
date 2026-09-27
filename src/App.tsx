@@ -11,8 +11,11 @@ import { fixMisheard } from "./game/normalize";
 import { findStage, pickStage, STAGES } from "./game/stages";
 import {
   describeSpeechError,
-  ensureMicPermission,
+  isIosSafari,
   isSpeechSupported,
+  isUnsupportedIosBrowser,
+  type MicHandle,
+  prepareMic,
   SpeechError,
   type SpeechSession,
   startListening,
@@ -52,6 +55,16 @@ const DEBUG = params.has("debug");
 
 const initialStage = findStage(params.get("stage")) ?? pickStage();
 
+/**
+ * iOS Safari sometimes feeds the page digital silence (both the recognizer and
+ * getUserMedia hear nothing). Hold and meter the mic there, to say so instead of
+ * blaming the player. See docs/experiments/2026-09-27-ios-safari-silent-mic.md.
+ */
+const HOLD_MIC = isIosSafari();
+const IOS_NON_SAFARI = isUnsupportedIosBrowser();
+const IOS_GUIDE = "iPhone・iPad では Safari で開いてください";
+const SILENT_MIC_MESSAGE = "マイクの音が届いていませんでした。ページを再読み込みしてお試しください";
+
 export function App() {
   const [maze, setMaze] = useState<Maze>(initialStage);
   const [phase, setPhase] = useState<Phase>({ name: "idle" });
@@ -61,6 +74,7 @@ export function App() {
   const [steps, setSteps] = useState<Step[]>([]);
   const [trace, setTrace] = useState<TraceEntry[]>([]);
   const [rawUtterance, setRawUtterance] = useState<string | null>(null);
+  const [speechLog, setSpeechLog] = useState<string[]>([]);
   const runId = useRef(0);
   const cleanup = useRef<(() => void) | null>(null);
 
@@ -80,6 +94,7 @@ export function App() {
       setSteps([]);
       setTrace([]);
       setRawUtterance(null);
+      setSpeechLog([]);
     },
     [abortRun],
   );
@@ -102,75 +117,99 @@ export function App() {
       reset(maze);
       const run = runId.current;
       const alive = () => run === runId.current;
+      const playStart = performance.now();
+      const log = DEBUG
+        ? (msg: string) => {
+            const line = `${Math.round(performance.now() - playStart)}ms ${msg}`;
+            if (alive()) setSpeechLog((l) => [...l, line]);
+          }
+        : undefined;
 
       let utterance: string;
+      /** Input peak during recording (iOS Safari only); exactly 0 means the mic was dead. */
+      let recordedPeak: number | undefined;
       if (typed === undefined) {
         // Get the microphone ready before the countdown so a permission dialog
-        // never cuts into the 3 seconds of speaking.
+        // never cuts into the 3 seconds of speaking. On iOS Safari the stream stays
+        // open and metered to catch digital silence; iOS only runs an AudioContext
+        // created inside the tap, so make it here.
+        const meterCtx = HOLD_MIC ? new AudioContext() : undefined;
         setPhase({ name: "preparing" });
+        let mic: MicHandle;
         try {
           if (!isSpeechSupported()) throw new SpeechError("not-supported");
-          await ensureMicPermission();
+          mic = await prepareMic(log, meterCtx);
         } catch (e) {
+          void meterCtx?.close();
           if (alive()) failMic(e);
           return;
         }
-        if (!alive()) return;
-        // Start recognition shortly before recording (LISTEN_LEAD_MS): early enough to
-        // catch the first words, late enough to ignore most countdown noise.
-        let session: SpeechSession | undefined;
-        const listen = (): SpeechSession | undefined => {
-          try {
-            const s = startListening();
-            cleanup.current = () => s.abort();
-            return s;
-          } catch (e) {
-            failMic(e);
-            return undefined;
+        try {
+          if (!alive()) return;
+          // Start recognition shortly before recording (LISTEN_LEAD_MS): early enough to
+          // catch the first words, late enough to ignore most countdown noise.
+          let session: SpeechSession | undefined;
+          const listen = (): SpeechSession | undefined => {
+            try {
+              const status = mic.status();
+              if (status) log?.(status);
+              const s = startListening("ja-JP", log);
+              cleanup.current = () => s.abort();
+              return s;
+            } catch (e) {
+              failMic(e);
+              return undefined;
+            }
+          };
+          // Stop right away if the microphone fails (e.g. permission denied) instead of
+          // letting the player talk into a dead recognizer.
+          const micFailed = () => {
+            if (!session?.failure) return false;
+            session.abort();
+            failMic(session.failure);
+            return true;
+          };
+          const ticks = [3, 2, 1];
+          const listenAt = ticks.length * COUNTDOWN_MS - LISTEN_LEAD_MS;
+          for (const [i, n] of ticks.entries()) {
+            setPhase({ name: "countdown", n });
+            const tickStart = i * COUNTDOWN_MS;
+            if (!session && listenAt < tickStart + COUNTDOWN_MS) {
+              // oxlint-disable-next-line no-await-in-loop -- the countdown is sequential by nature
+              await sleep(listenAt - tickStart);
+              if (!alive()) return;
+              session = listen();
+              if (!session) return;
+              // oxlint-disable-next-line no-await-in-loop
+              await sleep(tickStart + COUNTDOWN_MS - listenAt);
+            } else {
+              // oxlint-disable-next-line no-await-in-loop
+              await sleep(COUNTDOWN_MS);
+            }
+            if (!alive() || micFailed()) return;
           }
-        };
-        // Stop right away if the microphone fails (e.g. permission denied) instead of
-        // letting the player talk into a dead recognizer.
-        const micFailed = () => {
-          if (!session?.failure) return false;
-          session.abort();
-          failMic(session.failure);
-          return true;
-        };
-        const ticks = [3, 2, 1];
-        const listenAt = ticks.length * COUNTDOWN_MS - LISTEN_LEAD_MS;
-        for (const [i, n] of ticks.entries()) {
-          setPhase({ name: "countdown", n });
-          const tickStart = i * COUNTDOWN_MS;
-          if (!session && listenAt < tickStart + COUNTDOWN_MS) {
-            // oxlint-disable-next-line no-await-in-loop -- the countdown is sequential by nature
-            await sleep(listenAt - tickStart);
-            if (!alive()) return;
+          if (!session) {
             session = listen();
             if (!session) return;
-            // oxlint-disable-next-line no-await-in-loop
-            await sleep(tickStart + COUNTDOWN_MS - listenAt);
-          } else {
-            // oxlint-disable-next-line no-await-in-loop
-            await sleep(COUNTDOWN_MS);
           }
+          setPhase({ name: "recording", startedAt: performance.now() });
+          mic.takePeak();
+          await sleep(RECORD_MS);
           if (!alive() || micFailed()) return;
+          recordedPeak = mic.takePeak();
+          if (recordedPeak !== undefined) log?.(`recording peak=${recordedPeak.toFixed(3)}`);
+          setPhase({ name: "running", utterance: null, interpreting: true });
+          try {
+            utterance = await session.finish();
+          } catch (e) {
+            if (alive()) failMic(e);
+            return;
+          }
+          if (!alive()) return;
+        } finally {
+          // A held stream stays open until the recognizer is done with the mic.
+          mic.release();
         }
-        if (!session) {
-          session = listen();
-          if (!session) return;
-        }
-        setPhase({ name: "recording", startedAt: performance.now() });
-        await sleep(RECORD_MS);
-        if (!alive() || micFailed()) return;
-        setPhase({ name: "running", utterance: null, interpreting: true });
-        try {
-          utterance = await session.finish();
-        } catch (e) {
-          if (alive()) failMic(e);
-          return;
-        }
-        if (!alive()) return;
       } else {
         utterance = typed.trim();
       }
@@ -179,7 +218,15 @@ export function App() {
 
       if (utterance === "") {
         setPose("confused");
-        setPhase({ name: "result", utterance, clear: false, reason: "no_speech" });
+        setPhase({
+          name: "result",
+          utterance,
+          clear: false,
+          reason: "no_speech",
+          ...(recordedPeak === 0
+            ? { detail: SILENT_MIC_MESSAGE }
+            : IOS_NON_SAFARI && { detail: `声が聞き取れませんでした。${IOS_GUIDE}` }),
+        });
         return;
       }
 
@@ -288,6 +335,7 @@ export function App() {
           maze={maze}
           trace={trace}
           rawUtterance={rawUtterance}
+          speechLog={speechLog}
           busy={phase.name !== "idle" && phase.name !== "result"}
           onRun={(text) => void play(text)}
           onStage={changeStage}
@@ -321,11 +369,18 @@ function PhasePanel({
             迷路が現れたらロボットに道順を指示して下さい。
             <br />
             例：「右に真っ直ぐ、下に２マス」
-            {!isSpeechSupported() && (
+            {IOS_NON_SAFARI ? (
               <>
                 <br />
-                <strong>このブラウザは音声認識に対応していません（Chrome を推奨）</strong>
+                <strong>このブラウザでは音声認識が動きません。{IOS_GUIDE}</strong>
               </>
+            ) : (
+              !isSpeechSupported() && (
+                <>
+                  <br />
+                  <strong>このブラウザは音声認識に対応していません（Chrome を推奨）</strong>
+                </>
+              )
             )}
           </p>
         </div>
@@ -384,6 +439,7 @@ function DebugPanel({
   maze,
   trace,
   rawUtterance,
+  speechLog,
   busy,
   onRun,
   onStage,
@@ -391,6 +447,7 @@ function DebugPanel({
   maze: Maze;
   trace: TraceEntry[];
   rawUtterance: string | null;
+  speechLog: string[];
   busy: boolean;
   onRun: (text: string) => void;
   onStage: (m: Maze) => void;
@@ -435,6 +492,8 @@ function DebugPanel({
         </button>
       </form>
       {rawUtterance !== null && <p className="row">raw: {rawUtterance || "(empty)"}</p>}
+      {speechLog.length > 0 && <pre className="debug__log">{speechLog.join("\n")}</pre>}
+      <p className="debug__ua">{navigator.userAgent}</p>
       {trace.length > 0 && (
         <table className="debug__trace">
           <thead>

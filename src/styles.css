@@ -676,6 +676,23 @@ body {
   text-align: left;
 }
 
+.debug__log {
+  margin: 8px 0;
+  padding: 8px;
+  border-radius: 8px;
+  background: #f5f7fa;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.debug__ua {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+  word-break: break-all;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
