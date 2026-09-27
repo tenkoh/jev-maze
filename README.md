@@ -53,10 +53,12 @@ src/App.tsx            ゲームフロー（カウントダウン → 録音 →
 - 音声認識の結果には読点がほとんど付かないので、Jev に渡す前に、文頭以外の方向の漢字の前へ読点を入れる（`separateMovements`、`worker/jev.ts`）。区切りがないと、後ろの移動の距離が前の移動のものとして読まれやすいため。
 - 閾値（`DONE_TH = 0.8`、`CONF_TH = 0.7`、移動量が `until_wall` のときだけ `UNTIL_WALL_CONF_TH = 0.6`）は暫定値。実際の発話データで調整する。
 
-## デプロイ（未実施）
+## デプロイ
+
+https://voice-maze.jevpoc.tenkoh.dev で公開している（Workers の Custom Domain。workers.dev の URL は無効）。
 
 ```sh
+pnpm exec wrangler secret put TYPESAFE_API_KEY  # 初回のみ
 pnpm build
-pnpm exec wrangler secret put TYPESAFE_API_KEY
 pnpm exec wrangler deploy
 ```
